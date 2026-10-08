@@ -232,9 +232,29 @@ const OPTIONS_DONE = "DONE";
 // עם הערך NO_ANSWER (ערכים 12=Ok, 13=NO_ANSWER) כדי שנוכל לזהות זאת ולחזור אחורה
 function readDirective(questionText, allowedKeys, paramName) {
   const q = sanitizeText(questionText);
-  // name,use_existing,max,min,wait,display,block_star,block_zero,key_replace,allowed_keys,repeat,ok_if_empty,empty_value,kb_block,confirm
   const paramDef = `${paramName},,1,1,10,NO,yes,yes,,${allowedKeys},3,Ok,${NO_ANSWER},,no`;
   return `read=t-${q}=${paramDef}`;
+}
+
+function buildSurveyPrompt(questionData) {
+  const options = getOptions(questionData);
+  const parts = [questionData.question];
+  if (options.length <= 9) {
+    for (const option of options) parts.push(`לאפשרות ${option.text} הקישו ${option.num}`);
+  } else {
+    parts.push(`בסקר יש ${options.length} אפשרויות תשובה`);
+    for (const option of options) parts.push(`אפשרות מספר ${option.num}, ${option.text}`);
+    parts.push("כדי לבחור הקישו את מספר האפשרות הרצויה ובסיום הקישו סולמית");
+  }
+  return parts.join(", ");
+}
+
+function readVoteDirective(questionData, paramName) {
+  const options = getOptions(questionData);
+  if (options.length <= 9) {
+    return readDirective(buildSurveyPrompt(questionData), options.map((o) => o.num).join(""), paramName);
+  }
+  return digitsReadDirective(buildSurveyPrompt(questionData), paramName, 1, 3);
 }
  
 // משמיע את הבחירה שנקלטה ומבקש אישור/ביטול (1=אישור, 2=ביטול)
@@ -408,7 +428,7 @@ async function handleSurveyRequest(request) {
   const alreadyVoted = votes.some((v) => v.phone === voterKey);
  
   const options = getOptions(questionData);
-  const allowedKeys = options.map((o) => o.num).join("");
+  const allowedKeys = options.length <= 9 ? options.map((o) => o.num).join("") : "";
  
   // מי שכבר הצביע בעבר, ומתחיל שיחה חדשה (round 0 - אין עדיין שום Vote_N)
   // - משמיעים לו את ההצבעה שלו ואת התוצאות, בלי לשאול שוב
@@ -444,7 +464,7 @@ async function handleSurveyRequest(request) {
     // (שם משתנה חדש - Vote_{round+1} - כדי שה-Confirm הישן לא יידבק להצבעה הבאה)
     const nextRound = round + 1;
     return textResponse(
-      readDirective(questionData.question, allowedKeys, `Vote_${nextRound}`)
+      readVoteDirective(questionData, `Vote_${nextRound}`)
     );
   }
  
@@ -454,7 +474,7 @@ async function handleSurveyRequest(request) {
     if (!chosenOption) {
       // הקשה לא תקינה (לא אמור לקרות בזכות allowed_keys, אבל ליתר ביטחון)
       return textResponse(
-        readDirective(questionData.question, allowedKeys, `Vote_${round}`)
+        readVoteDirective(questionData, `Vote_${round}`)
       );
     }
     return textResponse(
@@ -463,7 +483,7 @@ async function handleSurveyRequest(request) {
   }
  
   // שלב א: כניסה ראשונה לשלוחה - שואלים את השאלה (סבב 1)
-  return textResponse(readDirective(questionData.question, allowedKeys, "Vote_1"));
+  return textResponse(readVoteDirective(questionData, "Vote_1"));
 }
  
 // ---------- נקודת קצה לדשבורד הניהול (HTML מקומי) ----------
@@ -536,7 +556,7 @@ async function handleAdminSaveQuestion(request) {
     return jsonResponse({ error: "גוף הבקשה אינו JSON תקין" }, 400);
   }
  
-  const { token, ext, question, options } = body || {};
+  const { token, ext, question, options, locked, optionCount } = body || {};
  
   if (!token || !ext) {
     return jsonResponse({ error: "חסר token או ext" }, 400);
@@ -562,7 +582,7 @@ async function handleAdminSaveQuestion(request) {
   cleanOptions.forEach((opt, i) => {
     iniText += `possibility${i + 1}=${opt}\n`;
   });
-  iniText += `locked=${body.locked ? "yes" : "no"}\n`;
+  iniText += `locked=${finalLocked ? "yes" : "no"}\n`;
  
   const qPath = buildIvrPath(ext, "Surveyquestion.ini");
   const ok = await uploadTextFile(token, qPath, iniText);
@@ -587,7 +607,7 @@ async function handleAdminSaveQuestion(request) {
 //
 // תפריט: 1=איפוס תוצאות, 2=עדכון שאלה+תשובות (הקלדה במקלדת עברית),
 //        3=נעילה/פתיחה של ההצבעה, 4=יציאה, 5=ייצוא תוצאות לקובץ TTS סטטי
-const MAX_MANAGE_OPTIONS = 9;
+const MAX_MANAGE_OPTIONS = 100;
  
 async function handleManageRequest(request) {
   const params = await extractParams(request);
@@ -645,60 +665,77 @@ async function handleManageRequest(request) {
     return textResponse(idListMessage(cancelMsg));
   }
  
-  // ----- 2: עדכון שאלה ותשובות (הקלדה במקלדת עברית) -----
+  // ----- 2: הגדרת שאלה ותשובות -----
   if (String(action) === "2") {
+    const optionCountRaw = params.OptionCount;
+    if (optionCountRaw === undefined || optionCountRaw === "") {
+      return textResponse(
+        digitsReadDirective(
+          "כמה אפשרויות תשובה יהיו בסקר הקישו מספר בין 1 ל 100 ובסיום הקישו סולמית",
+          "OptionCount",
+          1,
+          3
+        )
+      );
+    }
+    if (optionCountRaw === NO_ANSWER) return textResponse(noAnswerGoBack());
+
+    const optionCount = Number(optionCountRaw);
+    if (!Number.isInteger(optionCount) || optionCount < 1 || optionCount > MAX_MANAGE_OPTIONS) {
+      return textResponse(idListMessage("מספר אפשרויות לא תקין, יש לבחור מספר בין 1 ל 100"));
+    }
+
     const q = params.Q;
- 
     if (q === undefined || q === "") {
       return textResponse(
         textReadDirective(
-          "הקלידו במקלדת עברית את טקסט השאלה החדשה ובסיום ההקלדה הקישו סולמית",
+          `הקלידו במקלדת עברית את טקסט השאלה החדשה מתוך ${optionCount} אפשרויות ובסיום ההקלדה הקישו סולמית`,
           "Q",
-          120,
+          160,
           true
         )
       );
     }
     if (q === NO_ANSWER) return textResponse(noAnswerGoBack());
- 
-    // אוספים אפשרויות תשובה אחת אחרי השנייה: Opt_1, Opt_2...
+
     const collectedOptions = [];
-    let n = 1;
-    while (params["Opt_" + n] !== undefined) {
-      const val = params["Opt_" + n];
-      if (n === 1 && val === NO_ANSWER) return textResponse(noAnswerGoBack());
-      if (val === OPTIONS_DONE) break;
-      collectedOptions.push(val);
-      n++;
+    for (let n = 1; n <= optionCount; n++) {
+      const key = "Opt_" + n;
+      if (params[key] === undefined || params[key] === "") break;
+      const val = params[key];
+      if (val === NO_ANSWER) return textResponse(noAnswerGoBack());
+      if (val === OPTIONS_DONE) {
+        return textResponse(idListMessage(`חובה להקליד את כל ${optionCount} אפשרויות התשובה`));
+      }
+      collectedOptions.push(String(val).trim());
     }
- 
-    const nextKey = "Opt_" + n;
-    const alreadyFinished = params[nextKey] !== undefined; // הגענו לכאן דרך ה-break (OPTIONS_DONE)
- 
-    if (!alreadyFinished && collectedOptions.length < MAX_MANAGE_OPTIONS) {
-      const mandatory = collectedOptions.length === 0;
-      const positionNum = collectedOptions.length + 1;
-      const prompt = mandatory
-        ? `הקלידו את אפשרות התשובה מספר ${positionNum} ובסיום הקישו סולמית`
-        : `הקלידו את אפשרות התשובה מספר ${positionNum}, או הקישו סולמית בלי להקליד דבר כדי לסיים ולשמור`;
-      return textResponse(textReadDirective(prompt, nextKey, 40, mandatory));
+
+    if (collectedOptions.length < optionCount) {
+      const n = collectedOptions.length + 1;
+      return textResponse(
+        textReadDirective(
+          `הקלידו את אפשרות התשובה מספר ${n} מתוך ${optionCount} ובסיום הקישו סולמית`,
+          "Opt_" + n,
+          120,
+          true
+        )
+      );
     }
- 
-    if (collectedOptions.length === 0) {
-      return textResponse(idListMessage("לא הוקלדה אף אפשרות תשובה העדכון בוטל"));
-    }
- 
+
     const existingQuestionData = parseIni(await getTextFile(token, qPath));
     const newIniText = serializeQuestionIni(
       q,
       collectedOptions,
       isSurveyLocked(existingQuestionData)
     );
-    await uploadTextFile(token, qPath, newIniText);
-    const savedMsg = `השאלה עודכנה בהצלחה עם ${collectedOptions.length} אפשרויות תשובה`;
-    return textResponse(idListMessage(savedMsg));
+    const ok = await uploadTextFile(token, qPath, newIniText);
+    if (!ok) return textResponse(idListMessage("שמירת הסקר נכשלה נסו שוב"));
+
+    return textResponse(
+      idListMessage(`השאלה עודכנה בהצלחה עם ${collectedOptions.length} אפשרויות תשובה`)
+    );
   }
- 
+
   // ----- 3: נעילה/פתיחה של ההצבעה -----
   if (String(action) === "3") {
     const currentQuestionData = parseIni(await getTextFile(token, qPath));
