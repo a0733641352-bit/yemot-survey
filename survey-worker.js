@@ -562,6 +562,7 @@ async function handleAdminSaveQuestion(request) {
   cleanOptions.forEach((opt, i) => {
     iniText += `possibility${i + 1}=${opt}\n`;
   });
+  iniText += `locked=${body.locked ? "yes" : "no"}\n`;
  
   const qPath = buildIvrPath(ext, "Surveyquestion.ini");
   const ok = await uploadTextFile(token, qPath, iniText);
