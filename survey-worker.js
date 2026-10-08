@@ -810,26 +810,39 @@ async function handleManageRequest(request) {
       return textResponse(idListMessage("אין כרגע מצביעים בסקר"));
     }
 
-    const navKeys = Object.keys(params).filter((key) => /^ListenerNav_\\d+$/.test(key));
-    const navRound = navKeys.length;
-    const lastNav = navRound > 0 ? params["ListenerNav_" + navRound] : undefined;
+    const navRounds = Object.keys(params)
+      .map((key) => {
+        const match = /^ListenerNav_(\d+)$/.exec(key);
+        return match ? Number(match[1]) : 0;
+      })
+      .filter((n) => Number.isInteger(n) && n > 0);
+
+    const navRound = navRounds.length ? Math.max(...navRounds) : 0;
+    const lastNav = navRound > 0 ? String(params["ListenerNav_" + navRound]) : "";
 
     if (lastNav === "4") {
       return textResponse(idListMessage("יציאה מהאזנת המצביעים"));
     }
 
+    // ListenerNav_1 means the first voter was already played, so the
+    // next request should move to index 1 (the second voter).
     let index = navRound;
-    if (index >= listenerVotes.length) index = 0;
+    if (index >= listenerVotes.length) {
+      index = 0;
+    }
 
     const voter = listenerVotes[index];
     const chosen = options.find((o) => o.num === String(voter.choice));
     const choiceText = chosen ? chosen.text : "אפשרות " + voter.choice;
 
-    const prefix = navRound === 0 ? "בסקר יש " + listenerVotes.length + " מספרי טלפון. " : "";
+    const prefix =
+      navRound === 0
+        ? "בסקר יש " + listenerVotes.length + " מספרי טלפון. "
+        : "";
 
     const message =
       prefix +
-      "מאזין שמספר הטלפון שלו הוא "
+      "מאזין שמספר הטלפון שלו הוא " +
       sanitizeText(voter.phone) +
       " ובחר את אפשרות מספר " +
       sanitizeText(voter.choice) +
