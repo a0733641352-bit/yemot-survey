@@ -807,62 +807,35 @@ const app = {
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders() });
     }
-
     const url = new URL(request.url);
-
     if (url.pathname === "/health") {
-      return jsonResponse({
-        ok: true,
-        service: "yemot-survey",
-        time: new Date().toISOString(),
-      });
+      return jsonResponse({ ok: true, service: "yemot-survey", time: new Date().toISOString() });
     }
-
-    if (url.pathname === "/admin/data") {
-      return handleAdminData(request);
-    }
-
-    if (url.pathname === "/admin/question") {
-      return handleAdminSaveQuestion(request);
-    }
-
-    if (url.pathname === "/manage") {
-      return handleManageRequest(request);
-    }
-
+    if (url.pathname === "/admin/data") return handleAdminData(request);
+    if (url.pathname === "/admin/question") return handleAdminSaveQuestion(request);
+    if (url.pathname === "/manage") return handleManageRequest(request);
     return handleSurveyRequest(request);
   },
 };
 
 const port = Number(process.env.PORT || 10000);
-
 const server = createServer(async (req, res) => {
   try {
     const host = req.headers.host || "localhost";
     const url = new URL(req.url || "/", `http://${host}`);
     const headers = new Headers();
-
     for (const [key, value] of Object.entries(req.headers)) {
       if (Array.isArray(value)) headers.set(key, value.join(", "));
       else if (value !== undefined) headers.set(key, value);
     }
-
-    const init = {
-      method: req.method || "GET",
-      headers,
-    };
-
+    const init = { method: req.method || "GET", headers };
     if (req.method !== "GET" && req.method !== "HEAD") {
       init.body = Readable.toWeb(req);
       init.duplex = "half";
     }
-
-    const request = new Request(url, init);
-    const response = await app.fetch(request);
-
+    const response = await app.fetch(new Request(url, init));
     res.statusCode = response.status;
     response.headers.forEach((value, key) => res.setHeader(key, value));
-
     if (response.body) Readable.fromWeb(response.body).pipe(res);
     else res.end();
   } catch (error) {
@@ -871,18 +844,9 @@ const server = createServer(async (req, res) => {
       res.statusCode = 500;
       res.setHeader("Content-Type", "text/plain; charset=utf-8");
       res.end("Internal Server Error");
-    } else {
-      res.end();
-    }
+    } else res.end();
   }
 });
-
-server.on("error", (error) => {
-  console.error("Server error:", error);
-  process.exitCode = 1;
-});
-
 server.listen(port, "0.0.0.0", () => {
   console.log(`Render server listening on 0.0.0.0:${port}`);
-  console.log("Yemot API base:", YEMOT_API_BASE);
 });
