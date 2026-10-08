@@ -799,7 +799,7 @@ async function handleManageRequest(request) {
     return textResponse(idListMessage(lockCancelMsg));
   }
  
-  // ----- 6: האזנת מנהל לרשימת המצביעים -----
+  // ----- 3: האזנת מנהל לרשימת המצביעים -----
   if (String(action) === "3") {
     const dData = await getTextFile(token, dPath);
     const listenerVotes = parseSurveyData(dData);
@@ -825,8 +825,11 @@ async function handleManageRequest(request) {
     const chosen = options.find((o) => o.num === String(voter.choice));
     const choiceText = chosen ? chosen.text : "אפשרות " + voter.choice;
 
+    const prefix = navRound === 0 ? "בסקר יש " + listenerVotes.length + " מספרי טלפון. " : "";
+
     const message =
-      "מאזין שמספר הטלפון שלו הוא " +
+      prefix +
+      "מאזין שמספר הטלפון שלו הוא "
       sanitizeText(voter.phone) +
       " ובחר את אפשרות מספר " +
       sanitizeText(voter.choice) +
