@@ -617,6 +617,24 @@ async function handleAdminSaveQuestion(request) {
 // תפריט: 1=איפוס תוצאות, 2=עדכון שאלה+תשובות (הקלדה במקלדת עברית),
 //        3=נעילה/פתיחה, 4=יציאה, 5=ייצוא תוצאות, 6=האזנת מנהל לרשימת המצביעים
 const MAX_MANAGE_OPTIONS = 100;
+
+function buildDetailedResultsText(questionData, votes) {
+  const options = getOptions(questionData);
+  const total = votes.length;
+  const counts = {};
+  for (const opt of options) counts[opt.num] = 0;
+  for (const v of votes) {
+    if (counts[v.choice] !== undefined) counts[v.choice]++;
+  }
+  const parts = ["תוצאות הסקר המפורטות"];
+  for (const opt of options) {
+    const count = counts[opt.num] || 0;
+    const percent = total > 0 ? Math.round((count / total) * 100) : 0;
+    parts.push("לאפשרות " + sanitizeText(opt.text) + " הצביעו " + count + " משתמשים שהם " + percent + " אחוזים");
+  }
+  parts.push("בסך הכל הצביעו " + total + " משתמשים");
+  return parts.join(", ");
+}
  
 async function handleManageRequest(request) {
   const params = await extractParams(request);
@@ -642,7 +660,7 @@ async function handleManageRequest(request) {
   if (!action) {
     return textResponse(
       readDirective(
-        "לניהול הסקר: לאיפוס תוצאות ההצבעה הקישו אחד לעדכון השאלה והתשובות הקישו שתיים לנעילה או פתיחה של ההצבעה הקישו שלוש ליציאה הקישו ארבע לייצוא התוצאות לקובץ הקראה הקישו חמש להאזנה למספרי הטלפונים ולהצבעות הקישו שש",
+        "לניהול הסקר: לאיפוס תוצאות ההצבעה הקישו אחד לעדכון השאלה והתשובות הקישו שתיים לנעילה או פתיחה של ההצבעה הקישו שלוש ליציאה הקישו ארבע לייצוא התוצאות לקובץ הקראה הקישו חמש להאזנה למספרי הטלפונים ולהצבעות הקישו שש להשמעת תוצאות הסקר המפורטות הקישו שבע",
         "123456",
         "MgmtAction"
       )
@@ -824,6 +842,22 @@ async function handleManageRequest(request) {
     );
   }
 
+  // ----- 7: הקראת תוצאות הסקר המפורטות -----
+  if (String(action) === "7") {
+    const resultsData = await getTextFile(token, dPath);
+    const resultsVotes = parseSurveyData(resultsData);
+    const resultsQuestionData = parseIni(await getTextFile(token, qPath));
+    const resultsOptions = getOptions(resultsQuestionData);
+
+    if (resultsOptions.length === 0) {
+      return textResponse(idListMessage("שגיאה לא נמצאו אפשרויות תשובה בסקר"));
+    }
+
+    return textResponse(
+      idListMessage(buildDetailedResultsText(resultsQuestionData, resultsVotes))
+    );
+  }
+
   // ----- 5: ייצוא תוצאות לקובץ TTS סטטי, למספר סידורי אוטומטי בתיקיית שלוחת הסקר -----
   // המספר נקבע אוטומטית: 000 אם אין עדיין קבצי תוכן ממוספרים בתיקייה,
   // אחרת הקובץ הממוספר הגבוה ביותר הקיים + 1 (ראה getNextSerial)
@@ -881,8 +915,8 @@ async function handleManageRequest(request) {
   // הקשה לא צפויה (לא אמור לקרות בזכות allowed_keys) - חוזרים לתפריט
   return textResponse(
     readDirective(
-      "לניהול הסקר: לאיפוס תוצאות ההצבעה הקישו אחד לעדכון השאלה והתשובות הקישו שתיים לנעילה או פתיחה של ההצבעה הקישו שלוש לייצוא התוצאות לקובץ הקראה הקישו חמש ליציאה הקישו ארבע",
-      "12345",
+      "לניהול הסקר: לאיפוס תוצאות ההצבעה הקישו אחד לעדכון השאלה והתשובות הקישו שתיים לנעילה או פתיחה של ההצבעה הקישו שלוש ליציאה הקישו ארבע לייצוא התוצאות לקובץ הקראה הקישו חמש להאזנה למספרי הטלפונים ולהצבעות הקישו שש להשמעת תוצאות הסקר המפורטות הקישו שבע",
+      "1234567",
       "MgmtAction"
     )
   );
