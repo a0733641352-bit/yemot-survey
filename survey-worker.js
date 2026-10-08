@@ -542,6 +542,7 @@ async function handleAdminData(request) {
     question: questionData.question || null,
     options: optionsWithStats,
     total,
+    locked: isSurveyLocked(questionData),
     votes: sortedVotes.map((v) => ({
       phone: v.phone,
       choiceNum: v.choice,
@@ -661,7 +662,7 @@ async function handleManageRequest(request) {
     return textResponse(
       readDirective(
         "לניהול הסקר: לאיפוס תוצאות ההצבעה הקישו אחד לעדכון השאלה והתשובות הקישו שתיים לנעילה או פתיחה של ההצבעה הקישו שלוש ליציאה הקישו ארבע לייצוא התוצאות לקובץ הקראה הקישו חמש להאזנה למספרי הטלפונים ולהצבעות הקישו שש להשמעת תוצאות הסקר המפורטות הקישו שבע",
-        "123456",
+        "1234567",
         "MgmtAction"
       )
     );
