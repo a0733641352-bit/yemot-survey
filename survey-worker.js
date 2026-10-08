@@ -661,8 +661,8 @@ async function handleManageRequest(request) {
   if (!action) {
     return textResponse(
       readDirective(
-        "לניהול הסקר: לאיפוס תוצאות ההצבעה הקישו אחד לעדכון השאלה והתשובות הקישו שתיים לנעילה או פתיחה של ההצבעה הקישו שלוש ליציאה הקישו ארבע לייצוא התוצאות לקובץ הקראה הקישו חמש להאזנה למספרי הטלפונים ולהצבעות הקישו שש להשמעת תוצאות הסקר המפורטות הקישו שבע",
-        "1234567",
+        "לניהול הסקר: לעדכון השאלה והתשובות הקישו אחד להשמעת תוצאות הסקר המפורטות הקישו שתיים להאזנה למספרי הטלפונים ולהצבעות הקישו שלוש לייצוא התוצאות לקובץ הקראה הקישו ארבע לנעילה או פתיחה של ההצבעה הקישו חמש לאיפוס תוצאות ההצבעה הקישו שש למחיקת הסקר והכנת סקר חדש הקישו שבע ליציאה הקישו שמונה",
+        "12345678",
         "MgmtAction"
       )
     );
@@ -672,7 +672,7 @@ async function handleManageRequest(request) {
   }
  
   // ----- 1: איפוס תוצאות -----
-  if (String(action) === "1") {
+  if (String(action) === "6") {
     const confirmVal = params.ResetConfirm;
     if (confirmVal === undefined || confirmVal === "") {
       return textResponse(
@@ -694,7 +694,7 @@ async function handleManageRequest(request) {
   }
  
   // ----- 2: הגדרת שאלה ותשובות -----
-  if (String(action) === "2") {
+  if (String(action) === "1") {
     const optionCountRaw = params.OptionCount;
     if (optionCountRaw === undefined || optionCountRaw === "") {
       return textResponse(
@@ -765,7 +765,7 @@ async function handleManageRequest(request) {
   }
 
   // ----- 3: נעילה/פתיחה של ההצבעה -----
-  if (String(action) === "3") {
+  if (String(action) === "5") {
     const currentQuestionData = parseIni(await getTextFile(token, qPath));
     const locked = isSurveyLocked(currentQuestionData);
     const lockConfirm = params.LockConfirm;
@@ -800,7 +800,7 @@ async function handleManageRequest(request) {
   }
  
   // ----- 6: האזנת מנהל לרשימת המצביעים -----
-  if (String(action) === "6") {
+  if (String(action) === "3") {
     const dData = await getTextFile(token, dPath);
     const listenerVotes = parseSurveyData(dData);
     const questionData = parseIni(await getTextFile(token, qPath));
@@ -844,7 +844,7 @@ async function handleManageRequest(request) {
   }
 
   // ----- 7: הקראת תוצאות הסקר המפורטות -----
-  if (String(action) === "7") {
+  if (String(action) === "2") {
     const resultsData = await getTextFile(token, dPath);
     const resultsVotes = parseSurveyData(resultsData);
     const resultsQuestionData = parseIni(await getTextFile(token, qPath));
@@ -864,7 +864,7 @@ async function handleManageRequest(request) {
   // אחרת הקובץ הממוספר הגבוה ביותר הקיים + 1 (ראה getNextSerial)
   // או s-<נתיב מלא>/<המספר> משלוחה במיקום אחר - ראה תיעוד הערך "Speech" (s-)
   // נוסח השאלה בקובץ המיוצא מוקלד ע"י המנהל (לא בהכרח זהה לשאלת הסקר עצמה)
-  if (String(action) === "5") {
+  if (String(action) === "8") {
     const exportQuestionText = params.ExportQuestion;
  
     if (exportQuestionText === undefined || exportQuestionText === "") {
@@ -902,7 +902,21 @@ async function handleManageRequest(request) {
     return textResponse(idListMessage(exportResultMsg));
   }
  
-  // ----- יציאה (4): חוזרים לתפריט השורש של ימות המשיח -----
+  // ----- 7: מחיקת הסקר והכנת סקר חדש -----
+  if (String(action) === "7") {
+    const confirmVal = params.DeleteSurveyConfirm;
+    if (confirmVal === undefined || confirmVal === "") {
+      return textResponse(readDirective("מחיקת הסקר הנוכחי לצורך פתיחת סקר جديد תמחק את השאלה את כל אפשרויות התשובה ואת כל ההצבעות לאישור המחיקה הקישו אחד לביטול הקישו שתיים","12","DeleteSurveyConfirm"));
+    }
+    if (confirmVal === NO_ANSWER) return textResponse(noAnswerGoBack());
+    if (String(confirmVal) !== "1") return textResponse(idListMessage("מחיקת הסקר בוטלה"));
+    const questionDeleted = await uploadTextFile(token, qPath, "");
+    const dataDeleted = await uploadTextFile(token, dPath, "");
+    if (!questionDeleted || !dataDeleted) return textResponse(idListMessage("מחיקת הסקר נכשלה או הושלמה חלקית נסו שוב"));
+    return textResponse(idListMessage("הסקר נמחק בהצלחה כל הנתונים אופסו וכעת ניתן להגדיר סקר חדש דרך אפשרות אחת"));
+  }
+
+  // ----- יציאה (8): חוזרים לתפריט השורש של ימות המשיח -----
   // הערה: אין ב-API פעולה שמנתקת שיחה באופן ישיר; go_to_folder="/" הוא
   // הכי קרוב ל"יציאה" אמיתית שאפשר לשלוט בה מכאן. שאר הודעות הסיום
   // (איפוס/נעילה/עדכון) מסתמכות על ברירת המחדל של ימות המשיח שחוזרת
@@ -917,7 +931,7 @@ async function handleManageRequest(request) {
   return textResponse(
     readDirective(
       "לניהול הסקר: לאיפוס תוצאות ההצבעה הקישו אחד לעדכון השאלה והתשובות הקישו שתיים לנעילה או פתיחה של ההצבעה הקישו שלוש ליציאה הקישו ארבע לייצוא התוצאות לקובץ הקראה הקישו חמש להאזנה למספרי הטלפונים ולהצבעות הקישו שש להשמעת תוצאות הסקר המפורטות הקישו שבע",
-      "1234567",
+      "12345678",
       "MgmtAction"
     )
   );
