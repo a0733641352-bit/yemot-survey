@@ -615,7 +615,7 @@ async function handleAdminSaveQuestion(request) {
 //   api_add_1=surveyExt=/55        <- נתיב שלוחת הסקר שרוצים לנהל (חובה!)
 //
 // תפריט: 1=איפוס תוצאות, 2=עדכון שאלה+תשובות (הקלדה במקלדת עברית),
-//        3=נעילה/פתיחה של ההצבעה, 4=יציאה, 5=ייצוא תוצאות לקובץ TTS סטטי
+//        3=נעילה/פתיחה, 4=יציאה, 5=ייצוא תוצאות, 6=האזנת מנהל לרשימת המצביעים
 const MAX_MANAGE_OPTIONS = 100;
  
 async function handleManageRequest(request) {
@@ -642,8 +642,8 @@ async function handleManageRequest(request) {
   if (!action) {
     return textResponse(
       readDirective(
-        "לניהול הסקר: לאיפוס תוצאות ההצבעה הקישו אחד לעדכון השאלה והתשובות הקישו שתיים לנעילה או פתיחה של ההצבעה הקישו שלוש לייצוא התוצאות לקובץ הקראה הקישו חמש ליציאה הקישו ארבע",
-        "12345",
+        "לניהול הסקר: לאיפוס תוצאות ההצבעה הקישו אחד לעדכון השאלה והתשובות הקישו שתיים לנעילה או פתיחה של ההצבעה הקישו שלוש ליציאה הקישו ארבע לייצוא התוצאות לקובץ הקראה הקישו חמש להאזנה למספרי הטלפונים ולהצבעות הקישו שש",
+        "123456",
         "MgmtAction"
       )
     );
@@ -780,6 +780,50 @@ async function handleManageRequest(request) {
     return textResponse(idListMessage(lockCancelMsg));
   }
  
+  // ----- 6: האזנת מנהל לרשימת המצביעים -----
+  if (String(action) === "6") {
+    const dData = await getTextFile(token, dPath);
+    const listenerVotes = parseSurveyData(dData);
+    const questionData = parseIni(await getTextFile(token, qPath));
+    const options = getOptions(questionData);
+
+    if (listenerVotes.length === 0) {
+      return textResponse(idListMessage("אין כרגע מצביעים בסקר"));
+    }
+
+    const navKeys = Object.keys(params).filter((key) => /^ListenerNav_\\d+$/.test(key));
+    const navRound = navKeys.length;
+    const lastNav = navRound > 0 ? params["ListenerNav_" + navRound] : undefined;
+
+    if (lastNav === "4") {
+      return textResponse(idListMessage("יציאה מהאזנת המצביעים"));
+    }
+
+    let index = navRound;
+    if (index >= listenerVotes.length) index = 0;
+
+    const voter = listenerVotes[index];
+    const chosen = options.find((o) => o.num === String(voter.choice));
+    const choiceText = chosen ? chosen.text : "אפשרות " + voter.choice;
+
+    const message =
+      "מאזין שמספר הטלפון שלו הוא " +
+      sanitizeText(voter.phone) +
+      " ובחר את אפשרות מספר " +
+      sanitizeText(voter.choice) +
+      " האפשרות היא " +
+      sanitizeText(choiceText);
+
+    const nextParam = "ListenerNav_" + (navRound + 1);
+    return textResponse(
+      readDirective(
+        message + " למעבר למספר הבא הקישו שמונה ליציאה הקישו ארבע",
+        "48",
+        nextParam
+      )
+    );
+  }
+
   // ----- 5: ייצוא תוצאות לקובץ TTS סטטי, למספר סידורי אוטומטי בתיקיית שלוחת הסקר -----
   // המספר נקבע אוטומטית: 000 אם אין עדיין קבצי תוכן ממוספרים בתיקייה,
   // אחרת הקובץ הממוספר הגבוה ביותר הקיים + 1 (ראה getNextSerial)
