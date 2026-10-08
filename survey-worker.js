@@ -238,14 +238,23 @@ function readDirective(questionText, allowedKeys, paramName) {
 
 function buildSurveyPrompt(questionData) {
   const options = getOptions(questionData);
-  const parts = [questionData.question];
-  if (options.length <= 9) {
-    for (const option of options) parts.push(`לאפשרות ${option.text} הקישו ${option.num}`);
-  } else {
-    parts.push(`בסקר יש ${options.length} אפשרויות תשובה`);
-    for (const option of options) parts.push(`אפשרות מספר ${option.num}, ${option.text}`);
-    parts.push("כדי לבחור הקישו את מספר האפשרות הרצויה ובסיום הקישו סולמית");
+  const parts = [
+    `השאלה היא ${sanitizeText(questionData.question)}`,
+    `בסקר יש ${options.length} אפשרויות תשובה`
+  ];
+
+  // תמיד מקריאים למצביע את כל אפשרויות התשובה לפני ההקשה,
+  // כדי שלא תהיה הקשה "עיוורת" ושכל מספר יהיה ברור למה הוא שייך.
+  for (const option of options) {
+    parts.push(`אפשרות מספר ${option.num}, ${sanitizeText(option.text)}, להקשה הקישו ${option.num}`);
   }
+
+  if (options.length > 9) {
+    parts.push("לאחר בחירת מספר האפשרות הקישו סולמית לסיום");
+  } else {
+    parts.push("לאחר בחירת האפשרות הקישו את המספר המתאים");
+  }
+
   return parts.join(", ");
 }
 
