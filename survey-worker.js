@@ -581,13 +581,21 @@ async function handleAdminSaveQuestion(request) {
   if (cleanOptions.length === 0) {
     return jsonResponse({ error: "צריך לפחות אפשרות תשובה אחת" }, 400);
   }
-  if (cleanOptions.length > 9) {
+  if (cleanOptions.length > 100) {
     return jsonResponse(
-      { error: "ניתן להגדיר עד 9 אפשרויות תשובה (הקשה בודדת)" },
+      { error: "ניתן להגדיר עד 100 אפשרויות תשובה" },
       400
     );
   }
- 
+
+  const currentQuestionData = parseIni(
+    await getTextFile(token, buildIvrPath(ext, "Surveyquestion.ini"))
+  );
+  const finalLocked =
+    locked === undefined
+      ? isSurveyLocked(currentQuestionData)
+      : (locked === true || locked === "true" || locked === "yes");
+
   let iniText = `question=${cleanQuestion}\n`;
   cleanOptions.forEach((opt, i) => {
     iniText += `possibility${i + 1}=${opt}\n`;
