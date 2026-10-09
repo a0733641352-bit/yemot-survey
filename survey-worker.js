@@ -669,7 +669,7 @@ async function handleManageRequest(request) {
   if (!action) {
     return textResponse(
       readDirective(
-        "לניהול הסקר: לעדכון השאלה והתשובות הקישו אחד להשמעת תוצאות הסקר המפורטות הקישו שתיים להאזנה למספרי הטלפונים ולהצבעות הקישו שלוש לייצוא התוצאות לקובץ הקראה הקישו ארבע לנעילה או פתיחה של ההצבעה הקישו חמש לאיפוס תוצאות ההצבעה הקישו שש למחיקת הסקר והכנת סקר חדש הקישו שבע ליציאה הקישו שמונה למחיקה מלאה של השאלה כל אפשרויות התשובה וכל היסטוריית ההצבעות הקישו תשע",
+        "לניהול הסקר: לעדכון השאלה והתשובות הקישו אחד להשמעת תוצאות הסקר המפורטות הקישו שתיים להאזנה למספרי הטלפונים ולהצבעות הקישו שלוש לנעילה או פתיחה של ההצבעה הקישו ארבע לאיפוס תוצאות ההצבעה הקישו חמש למחיקת הסקר והכנת סקר חדש הקישו שש ליציאה הקישו שבע לייצוא תוצאות הסקר לקובץ הקראה TTS הקישו שמונה למחיקה מלאה של השאלה כל אפשרויות התשובה וכל היסטוריית ההצבעות הקישו תשע",
         "123456789",
         "MgmtAction"
       )
@@ -680,7 +680,7 @@ async function handleManageRequest(request) {
   }
  
   // ----- 1: איפוס תוצאות -----
-  if (String(action) === "6") {
+  if (String(action) === "5") {
     const confirmVal = params.ResetConfirm;
     if (confirmVal === undefined || confirmVal === "") {
       return textResponse(
@@ -773,7 +773,7 @@ async function handleManageRequest(request) {
   }
 
   // ----- 3: נעילה/פתיחה של ההצבעה -----
-  if (String(action) === "5") {
+  if (String(action) === "4") {
     const currentQuestionData = parseIni(await getTextFile(token, qPath));
     const locked = isSurveyLocked(currentQuestionData);
     const lockConfirm = params.LockConfirm;
@@ -888,7 +888,7 @@ async function handleManageRequest(request) {
   // אחרת הקובץ הממוספר הגבוה ביותר הקיים + 1 (ראה getNextSerial)
   // או s-<נתיב מלא>/<המספר> משלוחה במיקום אחר - ראה תיעוד הערך "Speech" (s-)
   // נוסח השאלה בקובץ המיוצא מוקלד ע"י המנהל (לא בהכרח זהה לשאלת הסקר עצמה)
-  if (String(action) === "4") {
+  if (String(action) === "8") {
     const exportQuestionText = params.ExportQuestion;
  
     if (exportQuestionText === undefined || exportQuestionText === "") {
@@ -927,7 +927,7 @@ async function handleManageRequest(request) {
   }
  
   // ----- 7: מחיקת הסקר והכנת סקר חדש -----
-  if (String(action) === "7") {
+  if (String(action) === "6") {
     const confirmVal = params.DeleteSurveyConfirm;
     if (confirmVal === undefined || confirmVal === "") {
       return textResponse(readDirective("מחיקת הסקר הנוכחי לצורך פתיחת סקר جديد תמחק את השאלה את כל אפשרויות התשובה ואת כל ההצבעות לאישור המחיקה הקישו אחד לביטול הקישו שתיים","12","DeleteSurveyConfirm"));
@@ -947,7 +947,7 @@ async function handleManageRequest(request) {
   // שלב אחד אחורה - אם זה לא באמת מנתק את השיחה אצלכם, זה תלוי בהגדרת
   // ה-ext.ini של השלוחה שמעל שלוחת הניהול (מה שמוגדר שם כברירת מחדל
   // לסיום שלוחה), ולא משהו שה-Worker יכול לשלוט בו מרחוק
-  if (String(action) === "8") {
+  if (String(action) === "7") {
     return textResponse("id_list_message=t-להתראות&go_to_folder=/");
   }
  
@@ -980,7 +980,7 @@ async function handleManageRequest(request) {
   // הקשה לא צפויה (לא אמור לקרות בזכות allowed_keys) - חוזרים לתפריט
   return textResponse(
     readDirective(
-      "לניהול הסקר: לעדכון השאלה והתשובות הקישו אחד להשמעת תוצאות הסקר המפורטות הקישו שתיים להאזנה למספרי הטלפונים ולהצבעות הקישו שלוש לייצוא התוצאות לקובץ הקראה הקישו ארבע לנעילה או פתיחה של ההצבעה הקישו חמש לאיפוס תוצאות ההצבעה הקישו שש למחיקת הסקר והכנת סקר חדש הקישו שבע ליציאה הקישו שמונה למחיקה מלאה של השאלה כל אפשרויות התשובה וכל היסטוריית ההצבעות הקישו תשע",
+      "לניהול הסקר: לעדכון השאלה והתשובות הקישו אחד להשמעת תוצאות הסקר המפורטות הקישו שתיים להאזנה למספרי הטלפונים ולהצבעות הקישו שלוש לנעילה או פתיחה של ההצבעה הקישו ארבע לאיפוס תוצאות ההצבעה הקישו חמש למחיקת הסקר והכנת סקר חדש הקישו שש ליציאה הקישו שבע לייצוא תוצאות הסקר לקובץ הקראה TTS הקישו שמונה למחיקה מלאה של השאלה כל אפשרויות התשובה וכל היסטוריית ההצבעות הקישו תשע",
       "123456789",
       "MgmtAction"
     )
