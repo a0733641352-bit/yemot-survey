@@ -941,8 +941,11 @@ async function handleManageRequest(request) {
       return textResponse(idListMessage("שגיאה לא נמצאו אפשרויות תשובה בסקר"));
     }
 
+    const resultParts = buildDetailedResultsText(resultsQuestionData, resultsVotes)
+      .map((part) => sanitizeText(part))
+      .filter(Boolean);
     return textResponse(
-      idListMessage(buildDetailedResultsText(resultsQuestionData, resultsVotes).join(", "))
+      "id_list_message=" + resultParts.map((part) => "t-" + part).join(".") + "&"
     );
   }
 
