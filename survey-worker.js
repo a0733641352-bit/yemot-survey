@@ -260,10 +260,24 @@ function buildSurveyPrompt(questionData) {
 }
 function readVoteDirective(questionData, paramName) {
   const options = getOptions(questionData);
-  if (options.length <= 9) {
-    return readDirective(buildSurveyPrompt(questionData), options.map((o) => o.num).join(""), paramName);
-  }
-  return digitsReadDirective(buildSurveyPrompt(questionData), paramName, 1, 3);
+  const allowedKeys = options.length <= 9 ? options.map((o) => o.num).join("") : "";
+  const promptParts = [
+    `השאלה היא ${questionData.question || ""}`,
+    ...options.map((option) =>
+      `להצבעה לאפשרות ${option.text} הקישו ${option.num}`
+    ),
+    options.length > 9
+      ? "לאחר הקלדת מספר האפשרות הקישו סולמית לסיום"
+      : "לבחירת האפשרות הקישו את המספר המתאים",
+  ].map((part) => sanitizeText(part)).filter(Boolean);
+
+  // Yemot supports consecutive TTS items in a read directive, separated by dots.
+  // Each option is its own short item so long surveys do not become one huge TTS prompt.
+  const ttsSequence = promptParts.map((part) => "t-" + part).join(".");
+  const paramDef = options.length <= 9
+    ? `${paramName},,1,1,10,NO,yes,yes,,${allowedKeys},3,Ok,${NO_ANSWER},,no`
+    : `${paramName},,3,1,10,Number,yes,no,,,3,Ok,${NO_ANSWER},,no`;
+  return `read=${ttsSequence}=${paramDef}`;
 }
  
 // משמיע את הבחירה שנקלטה ומבקש אישור/ביטול (1=אישור, 2=ביטול)
