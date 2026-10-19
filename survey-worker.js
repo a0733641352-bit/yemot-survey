@@ -338,7 +338,7 @@ function serializeQuestionIni(question, possibilities, locked) {
  
 // myChoiceNum - אם ידוע מה המצביע הנוכחי בחר (הצבעה חדשה או חוזרת),
 // המשפט "ההצבעה שלך היא..." יתווסף בתחילת ההודעה
-function buildResultsText(questionData, votes, myChoiceNum) {
+function buildResultsMessage(questionData, votes, myChoiceNum) {
   const options = getOptions(questionData);
   const total = votes.length;
   const counts = {};
@@ -346,13 +346,13 @@ function buildResultsText(questionData, votes, myChoiceNum) {
   for (const v of votes) {
     if (counts[v.choice] !== undefined) counts[v.choice]++;
   }
- 
+
   const parts = [];
   if (myChoiceNum) {
     const myOpt = options.find((o) => o.num === String(myChoiceNum));
     if (myOpt) parts.push(`ההצבעה שלך היא ${myOpt.text}`);
   }
- 
+
   parts.push("תוצאות הסקר עד כה");
   const sortedOptions = [...options].sort(
     (a, b) => (counts[b.num] || 0) - (counts[a.num] || 0)
@@ -363,7 +363,56 @@ function buildResultsText(questionData, votes, myChoiceNum) {
     parts.push(`לאפשרות ${opt.text} הצביעו ${pct} אחוזים`);
   }
   parts.push(`מספר המצביעים עד כה הוא ${total}`);
-  return parts.join(", ");
+
+  // מפצלים את ההקראה למקטעי TTS עוקבים, בלי לשנות את סדר או תוכן התוצאות.
+  // כל מקטע מכיל עד 5 פריטי תוצאה ובדרך כלל עד כ-350 תווים.
+  const chunks = [];
+  let current = [];
+  let currentLength = 0;
+  let optionCount = 0;
+
+  const addChunk = () => {
+    if (current.length) chunks.push(current.join(", "));
+    current = [];
+    currentLength = 0;
+    optionCount = 0;
+  };
+
+  for (const part of parts) {
+    const isOptionResult = part.startsWith("לאפשרות ");
+    const words = part.split(/\s+/);
+    const subParts = [];
+    let sub = "";
+    for (const word of words) {
+      const candidate = sub ? sub + " " + word : word;
+      if (candidate.length > 320 && sub) {
+        subParts.push(sub);
+        sub = word;
+      } else {
+        sub = candidate;
+      }
+    }
+    if (sub) subParts.push(sub);
+
+    for (const subPart of subParts) {
+      const addedLength = subPart.length + (current.length ? 2 : 0);
+      if (current.length && (currentLength + addedLength > 350 ||
+          (isOptionResult && optionCount >= 5))) {
+        addChunk();
+      }
+      current.push(subPart);
+      currentLength += subPart.length + (current.length > 1 ? 2 : 0);
+    }
+    if (isOptionResult) {
+      optionCount++;
+      if (optionCount >= 5) addChunk();
+    }
+  }
+  addChunk();
+
+  // כל מקטע מקבל TTS נפרד בתוך אותה הודעת id_list_message.
+  const safeChunks = chunks.map((chunk) => sanitizeText(chunk)).filter(Boolean);
+  return "id_list_message=" + safeChunks.map((chunk) => "t-" + chunk).join(".");
 }
  
 // טקסט לייצוא לקובץ TTS סטטי (s-NNN): "תוצאות הסקר לשאלה X, לאפשרות Y
@@ -445,7 +494,7 @@ async function handleSurveyRequest(request) {
     const existing = votes.find((v) => v.phone === voterKey);
     const myChoiceNum = existing ? existing.choice : null;
     return textResponse(
-      idListMessage(buildResultsText(questionData, votes, myChoiceNum))
+      buildResultsMessage(questionData, votes, myChoiceNum))
     );
   }
  
@@ -458,7 +507,7 @@ async function handleSurveyRequest(request) {
   if (round > 0 && currentVote && currentConfirm !== undefined && currentConfirm !== "") {
     if (alreadyVoted) {
       // הספיק להצביע כבר בינתיים (למשל שיחה כפולה) - משמיעים תוצאות בלי לחזור על הבחירה
-      return textResponse(idListMessage(buildResultsText(questionData, votes)));
+      return textResponse(buildResultsMessage(questionData, votes)));
     }
  
     if (String(currentConfirm) === "1") {
@@ -466,7 +515,7 @@ async function handleSurveyRequest(request) {
       // שיחה מקבילה) ומשמיעים רק את התוצאות הכלליות, בלי לחזור על מה
       // שהמאזין בחר (זה יישמע רק אם יתקשר שוב בעתיד)
       const result = await recordVoteSafely(token, dPath, voterKey, currentVote);
-      return textResponse(idListMessage(buildResultsText(questionData, result.votes)));
+      return textResponse(buildResultsMessage(questionData, result.votes)));
     }
  
     // בוטל (הוקש 2) - לא שומרים כלום, שואלים את השאלה מחדש בסבב הבא
