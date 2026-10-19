@@ -494,7 +494,7 @@ async function handleSurveyRequest(request) {
     const existing = votes.find((v) => v.phone === voterKey);
     const myChoiceNum = existing ? existing.choice : null;
     return textResponse(
-      buildResultsMessage(questionData, votes, myChoiceNum))
+      buildResultsMessage(questionData, votes, myChoiceNum)
     );
   }
  
@@ -507,7 +507,7 @@ async function handleSurveyRequest(request) {
   if (round > 0 && currentVote && currentConfirm !== undefined && currentConfirm !== "") {
     if (alreadyVoted) {
       // הספיק להצביע כבר בינתיים (למשל שיחה כפולה) - משמיעים תוצאות בלי לחזור על הבחירה
-      return textResponse(buildResultsMessage(questionData, votes)));
+      return textResponse(buildResultsMessage(questionData, votes));
     }
  
     if (String(currentConfirm) === "1") {
@@ -515,7 +515,7 @@ async function handleSurveyRequest(request) {
       // שיחה מקבילה) ומשמיעים רק את התוצאות הכלליות, בלי לחזור על מה
       // שהמאזין בחר (זה יישמע רק אם יתקשר שוב בעתיד)
       const result = await recordVoteSafely(token, dPath, voterKey, currentVote);
-      return textResponse(buildResultsMessage(questionData, result.votes)));
+      return textResponse(buildResultsMessage(questionData, result.votes));
     }
  
     // בוטל (הוקש 2) - לא שומרים כלום, שואלים את השאלה מחדש בסבב הבא
