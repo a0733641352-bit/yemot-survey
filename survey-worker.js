@@ -412,7 +412,7 @@ function buildResultsMessage(questionData, votes, myChoiceNum) {
 
   // כל מקטע מקבל TTS נפרד בתוך אותה הודעת id_list_message.
   const safeChunks = chunks.map((chunk) => sanitizeText(chunk)).filter(Boolean);
-  return "id_list_message=" + safeChunks.map((chunk) => "t-" + chunk).join(".");
+  return "id_list_message=" + safeChunks.map((chunk) => "t-" + chunk).join(".") + "&";
 }
  
 // טקסט לייצוא לקובץ TTS סטטי (s-NNN): "תוצאות הסקר לשאלה X, לאפשרות Y
@@ -688,10 +688,10 @@ function buildDetailedResultsText(questionData, votes) {
   for (const opt of options) {
     const count = counts[opt.num] || 0;
     const percent = total > 0 ? Math.round((count / total) * 100) : 0;
-    parts.push("לאפשרות " + sanitizeText(opt.text) + " הצביעו " + count + " משתמשים שהם " + percent + " אחוזים");
+    parts.push("לאפשרות " + sanitizeText(opt.text) + " הצביעו " + count + " מצביעים שהם " + percent + " אחוזים");
   }
-  parts.push("בסך הכל הצביעו " + total + " משתמשים");
-  return parts.join(", ");
+  parts.push("בסך הכל הצביעו " + total + " מצביעים");
+  return parts;
 }
  
 async function handleManageRequest(request) {
@@ -928,7 +928,7 @@ async function handleManageRequest(request) {
     }
 
     return textResponse(
-      idListMessage(buildDetailedResultsText(resultsQuestionData, resultsVotes))
+      idListMessage(buildDetailedResultsText(resultsQuestionData, resultsVotes).join(", "))
     );
   }
 
